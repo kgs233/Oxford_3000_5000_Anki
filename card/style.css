@@ -1,0 +1,171 @@
+/* ==============================
+   全局样式
+================================ */
+
+.card {
+  font-family: Arial, "Noto Sans CJK SC", sans-serif;
+  font-size: 20px;
+  text-align: center;
+  color: #222222;
+  background-color: #ffffff;
+  padding: 20px;
+  line-height: 1.6;
+}
+
+/* ==============================
+   顶部词汇
+================================ */
+
+.word {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: -10px;
+  overflow-wrap: anywhere;
+}
+
+/* ==============================
+   音标
+================================ */
+
+.pronunciation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 18px;
+  text-align: center;
+	margin-bottom: -10px;
+}
+
+.ipa {
+  font-size: 18px;
+  color: #888888;
+  line-height: 1.5;
+}
+
+/* 音频按钮 */
+.audio {
+  display: inline-block;
+  align-items: center;
+  justify-content: center;
+}
+
+.replay-button { width: 22px; }
+
+/* ==============================
+   分割线
+================================ */
+
+.divider {
+  border: none;
+  border-top: 1px solid #cccccc;
+  margin: 18px 0;
+}
+
+/* ==============================
+   词性与英文释义
+================================ */
+
+.definition-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 10px;
+  text-align: left;
+}
+
+.pos {
+  color: #777777;
+  font-size: 17px;
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+.meaning {
+  cursor: pointer;
+  font-size: 17px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* ==============================
+   例句
+================================ */
+
+.example {
+  font-size: 21px;
+  margin: 22px 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:active,
+.meaning:active {
+  opacity: 0.65;
+}
+
+/* ==============================
+   中文释义与翻译
+================================ */
+
+.translation {
+  font-size: 18px;
+  color: #777777;
+  margin: 10px 0 18px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.hidden {
+  display: none;
+}
+
+/* ==============================
+   图片
+================================ */
+
+.picture {
+  text-align: center;
+}
+
+.picture img {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  margin: 20px auto 0;
+  border-radius: 6px;
+}
+
+/* ==============================
+   暗色模式
+================================ */
+
+.nightMode .card,
+.night_mode .card {
+  color: #eeeeee;
+  background-color: #222222;
+}
+
+.nightMode .divider,
+.night_mode .divider {
+  border-top-color: #555555;
+}
+
+.nightMode .ipa,
+.night_mode .ipa,
+.nightMode .pos,
+.night_mode .pos,
+.nightMode .translation,
+.night_mode .translation {
+  color: #aaaaaa;
+}

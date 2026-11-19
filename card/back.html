@@ -1,0 +1,58 @@
+<!-- 单词 -->
+<div class="word">
+  {{Word}}
+</div>
+
+<!-- 音标 -->
+<div class="pronunciation">
+  <span class="ipa">{{IPA}}</span>
+	<span class="audio">{{Audio}}</span>
+</div>
+
+<hr class="divider">
+
+<!-- 词性与英文释义 -->
+<div class="definition-row">
+  <span class="meaning clickable"
+        onclick="toggleSection('meaning-chinese-translation')">
+		<span class="pos">{{POS}}</span>
+    {{Meaning}}
+  </span>
+</div>
+
+<!-- 第一层：英文释义的中文翻译 -->
+<div id="meaning-chinese-translation" class="translation hidden">
+
+  <div>
+    {{MeaningChinese}}
+  </div>
+
+</div>
+
+<hr class="divider">
+
+<!-- 英文例句 -->
+<div class="example clickable"
+     onclick="toggleSection('example-translation')">
+  {{Example}}
+</div>
+
+<!-- 例句中文翻译 -->
+<div id="example-translation" class="translation hidden">
+  {{ExampleChinese}}
+</div>
+
+<!-- 图片 -->
+<div class="picture">
+  {{Image}}
+</div>
+
+<script>
+function toggleSection(id) {
+  var el = document.getElementById(id);
+
+  if (el) {
+    el.classList.toggle('hidden');
+  }
+}
+</script>
