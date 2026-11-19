@@ -1,4 +1,4 @@
-"""Translate data/raw_data.csv to data/chinese.csv using Azure Translator.
+"""Translate data/english_data.csv to data/chinese.csv using Azure or DeepL.
 
 Progress is kept in a separate partial file. The old output is replaced only
 after the new file is complete and validated.
@@ -19,7 +19,9 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 COLUMNS_ZH = ("definition_zh", "example_zh")
-ENDPOINT = "https://api.cognitive.microsofttranslator.com"
+AZURE_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
+DEEPL_FREE_ENDPOINT = "https://api-free.deepl.com"
+DEEPL_PRO_ENDPOINT = "https://api.deepl.com"
 
 
 def read_key(path):
@@ -29,7 +31,7 @@ def read_key(path):
     return key
 
 
-def translate(texts, key, region, endpoint, timeout):
+def translate_azure(texts, key, region, endpoint, timeout):
     url = endpoint.rstrip("/") + "/translate?api-version=3.0&from=en&to=zh-Hans"
     payload = json.dumps([{"Text": text} for text in texts], ensure_ascii=False).encode("utf-8")
     headers = {
@@ -66,6 +68,52 @@ def translate(texts, key, region, endpoint, timeout):
         if attempt < 7:
             time.sleep(wait)
     raise RuntimeError(f"Translation failed after 8 attempts: {error}")
+
+
+def translate_deepl(texts, key, endpoint, timeout):
+    url = endpoint.rstrip("/") + "/v2/translate"
+    payload = json.dumps(
+        {"text": texts, "source_lang": "EN", "target_lang": "ZH"},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    if len(payload) > 128 * 1024:
+        raise ValueError("DeepL request exceeds 128 KiB; lower --batch-size or --max-chars")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"DeepL-Auth-Key {key}",
+    }
+    for attempt in range(8):
+        try:
+            request = Request(url, data=payload, headers=headers, method="POST")
+            with urlopen(request, timeout=timeout) as response:
+                result = json.load(response)
+            translations = [
+                item["text"].replace("\r", " ").replace("\n", " ")
+                for item in result["translations"]
+            ]
+            if len(translations) != len(texts) or any(not text.strip() for text in translations):
+                raise ValueError("DeepL returned missing or empty translations")
+            return translations
+        except HTTPError as exc:
+            if exc.code not in (408, 429, 500, 502, 503, 504, 529):
+                try:
+                    detail = json.load(exc)
+                    message = detail.get("message", "")
+                except (ValueError, AttributeError):
+                    message = ""
+                raise RuntimeError(f"DeepL HTTP {exc.code}: {message}".rstrip()) from exc
+            error = f"DeepL HTTP {exc.code}"
+            retry_after = exc.headers.get("Retry-After")
+            try:
+                wait = max(1, int(retry_after)) if retry_after else min(2 ** attempt, 30)
+            except ValueError:
+                wait = min(2 ** attempt, 30)
+        except (URLError, TimeoutError) as exc:
+            error = f"Network error: {type(exc).__name__}"
+            wait = min(2 ** attempt, 30)
+        if attempt < 7:
+            time.sleep(wait)
+    raise RuntimeError(f"DeepL translation failed after 8 attempts: {error}")
 
 
 def load_source(path):
@@ -138,11 +186,12 @@ def row_batches(rows, start, limit_rows, limit_chars):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DATA / "raw_data.csv")
+    parser.add_argument("--input", type=Path, default=DATA / "english_data.csv")
     parser.add_argument("--output", type=Path, default=DATA / "chinese.csv")
     parser.add_argument("--key-file", type=Path, default=ROOT / "key")
+    parser.add_argument("--provider", choices=("azure", "deepl"), default="azure")
     parser.add_argument("--region", default="eastus")
-    parser.add_argument("--endpoint", default=ENDPOINT)
+    parser.add_argument("--endpoint", help="Override the selected provider's API base URL")
     parser.add_argument("--batch-size", type=int, default=50)
     parser.add_argument("--max-chars", type=int, default=8000)
     parser.add_argument("--timeout", type=float, default=30)
@@ -156,9 +205,13 @@ def main():
     if args.output.exists() and not args.replace:
         raise ValueError(f"Output exists: {args.output}; pass --replace to update it")
     key = read_key(args.key_file)
+    endpoint = args.endpoint or (
+        AZURE_ENDPOINT if args.provider == "azure" else
+        DEEPL_FREE_ENDPOINT if key.endswith(":fx") else DEEPL_PRO_ENDPOINT
+    )
     source_columns, rows = load_source(args.input)
     output_columns = source_columns + list(COLUMNS_ZH)
-    partial = args.output.with_name("." + args.output.name + ".azure-partial")
+    partial = args.output.with_name("." + args.output.name + f".{args.provider}-partial")
     completed = progress(partial, source_columns, output_columns, rows)
     if not partial.exists():
         with partial.open("w", encoding="utf-8", newline="") as file:
@@ -170,10 +223,13 @@ def main():
         for start, end in row_batches(rows, completed, args.batch_size, args.max_chars):
             texts = [text for row in rows[start:end] for text in (row["definition"], row["example"])]
             batch_chars = sum(len(text) for text in texts)
-            target_time = start_time + (sent_chars + batch_chars) * 60 / args.chars_per_minute
-            if target_time > time.monotonic():
-                time.sleep(target_time - time.monotonic())
-            translated = translate(texts, key, args.region, args.endpoint, args.timeout)
+            if args.provider == "azure":
+                target_time = start_time + (sent_chars + batch_chars) * 60 / args.chars_per_minute
+                if target_time > time.monotonic():
+                    time.sleep(target_time - time.monotonic())
+                translated = translate_azure(texts, key, args.region, endpoint, args.timeout)
+            else:
+                translated = translate_deepl(texts, key, endpoint, args.timeout)
             sent_chars += batch_chars
             buffer = io.StringIO(newline="")
             writer = csv.DictWriter(buffer, fieldnames=output_columns, lineterminator="\n")
